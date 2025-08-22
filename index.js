@@ -22,6 +22,7 @@ async function run() {
         const database = client.db("Collably");
         const groups = database.collection("groups");
         const groupNMembers = database.collection("groupNMembers");
+        const users = database.collection("user");
 
 
         var admin = require("firebase-admin");
@@ -61,7 +62,7 @@ async function run() {
                 return res.status(403).send({ message: "Forbidden Access" });
             }
             const result = await groups.insertOne(req.body);
-            const resultGroupNMembers = await groupNMembers.insertOne({ email: email, groupId: result.insertedId.toString() })
+            const resultGroupNMembers = await groupNMembers.insertOne({ email: email, groupId: result.insertedId.toString(), admin: "true", creator: "true" })
             res.send(result);
         });
 
@@ -96,6 +97,30 @@ async function run() {
             const result = await groups.deleteOne({ _id: new ObjectId(id) });
             const result1 = await groupNMembers.deleteMany({groupId: id});
             res.send(result);
+        })
+
+        app.post("/add-member", veryfyingFirebaseToken, async(req, res) => {
+            const tokenEmail = req.decoded.email;
+            const email = req.query.email;
+            if (tokenEmail !== email) {
+                return res.status(403).send({ message: "Forbidden Access" });
+            }
+            console.log(req.query.groupId, req.query.addedEmail)
+            const [groupId, addedEmail] = [req.query.groupId, req.query.addedEmail];
+            let user = await users.find({email: addedEmail}).toArray();
+            console.log(user);
+            if(user.length == 0) {
+                res.send({ message: "The user doesn't exist.", icon: "error"});
+                return;
+            }
+
+            user = await groupNMembers.find({ email: addedEmail, groupId: groupId }).toArray()
+            if(user.length !== 0) {
+                res.send({ message: "This user is already a member of the group.", icon: "error" });
+                return;
+            } 
+            const result = await groupNMembers.insertOne({groupId, email: addedEmail, admin: "false", creator: "false"});
+            res.send({ message: "Member Added Successfully.", icon: "success" });
         })
     } finally {
 
