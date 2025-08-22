@@ -108,7 +108,6 @@ async function run() {
             console.log(req.query.groupId, req.query.addedEmail)
             const [groupId, addedEmail] = [req.query.groupId, req.query.addedEmail];
             let user = await users.find({email: addedEmail}).toArray();
-            console.log(user);
             if(user.length == 0) {
                 res.send({ message: "The user doesn't exist.", icon: "error"});
                 return;
@@ -121,6 +120,30 @@ async function run() {
             } 
             const result = await groupNMembers.insertOne({groupId, email: addedEmail, admin: "false", creator: "false"});
             res.send({ message: "Member Added Successfully.", icon: "success" });
+        })
+
+        app.get("/group-members", async(req, res) => {
+            const groupId = req.query.groupId
+            const result = await groupNMembers.find({ groupId: groupId }).toArray();
+            for (let singleUser of result) {
+                let userEmail = singleUser.email;
+                const userDetails = await users.findOne({email: userEmail});
+                singleUser.profilePicture = userDetails.profilePicture;
+            }
+            
+            res.send(result);
+        })
+
+        app.delete("/delete-user-from-group",veryfyingFirebaseToken, async(req, res) => {
+            const tokenEmail = req.decoded.email;
+            const email = req.query.email;
+            if (tokenEmail !== email) {
+                return res.status(403).send({ message: "Forbidden Access" });
+            }
+            console.log("hello")
+            const [userEmail, groupId] = [req.query.deletedUser, req.query.id];
+            const result = await groupNMembers.deleteOne({ groupId: groupId, email: userEmail });
+            res.send(result);
         })
     } finally {
 
